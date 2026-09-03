@@ -1,83 +1,89 @@
-# Hajeen AI 🧠
+# Hajeen AI — Flutter Core
 
-A bilingual (Arabic / English, RTL-ready) AI chat platform built with **Flutter** and a clean layered architecture — Core → Data → Presentation — driven by **BLoC/Cubit** state management, **GetIt** DI, **go_router** navigation and the **Dio** network stack.
+## وصف المشروع
 
-## Stack
+هذا المستودع يحتوي على نواة تطبيق Flutter لمنصة Hajeen AI: واجهة محادثة مع نماذج ذكاء اصطناعي، إدارة محادثات وملفات، وإعدادات وميزات حساب واشتراكات جاهزة داخليًا للانتقال اللاحق إلى تكامل Backend.
 
-| Layer | Tech |
+## حالة المشروع الحالية
+
+المشروع حاليًا **Flutter Core Project** بلا مجلدات منصات. تم الاحتفاظ بكود التطبيق وملفات الأصول والاختبارات والعقود الداخلية فقط. ستتم إضافة Android وiOS وWeb وWindows وmacOS وLinux لاحقًا دفعة واحدة.
+
+**حالة Backend:** غير مربوط حاليًا. لا يوجد Backend أو Mock Server أو بيانات تجريبية داخل هذا المستودع.
+
+## المعمارية الحالية
+
+المسار المعماري الأساسي هو:
+
+> `UI → Cubit/BLoC/Controller → Repository → RemoteDataSource → ApiConsumer → API Endpoint`
+
+تستخدم المصادقة `AuthController` خلف `AuthRepository`، وتستخدم الميزات الأخرى Cubits مع Repositories مسجلة في GetIt. التخزين المحلي والآمن والخدمات التقنية تعمل من خلال طبقة الخدمات وDataSources المحلية، بينما تبقى API Contracts معرفة للاستعداد للتكامل اللاحق.
+
+## المجلدات الرئيسية
+
+| المجلد/الملف | الغرض |
 |---|---|
-| UI | Flutter (Material 3, Cairo typeface) |
-| State | `flutter_bloc` (Cubits) + `equatable` |
-| DI | `get_it` |
-| Routing | `go_router` (StatefulShellRoute, guards, deep links) |
-| Networking | `dio` + interceptors (auth/refresh, retry, logging) |
-| Storage | `shared_preferences` (non-sensitive) + `flutter_secure_storage` (tokens) |
-| Localization | custom `LocalizationCubit` + `flutter_localizations` |
+| `lib/` | كود التطبيق: Core وData وPresentation والتوطين والتوجيه |
+| `assets/` | الخطوط والصور والأيقونات والرسوم والترجمات المستخدمة في التطبيق |
+| `test/` | اختبارات الوحدات والـ Cubits والنماذج والشبكة والواجهات |
+| `pubspec.yaml` | تعريف المشروع والاعتماديات |
+| `pubspec.lock` | تثبيت إصدارات الاعتماديات |
+| `analysis_options.yaml` | إعدادات Dart/Flutter analyzer |
+| `README.md` | وثيقة المشروع الرئيسية |
 
-## Architecture
+## الميزات الموجودة فعليًا
 
-```
-lib/
-├── core/          # config (flavors/environments), constants, DI, errors, extensions,
-│                  # network (ApiConsumer/Endpoints/interceptors), routes (AppRouter/guards),
-│                  # services, theme (tokens), utils, widgets (design system)
-├── data/          # datasources (remote/local) + models + repositories
-├── presentation/  # screens, widgets, dialogs, animations, blocs (cubits), routing (page factory)
-└── main.dart      # bootstrap: config + DI + runApp
-```
+| المجال | الحالة الحالية |
+|---|---|
+| Authentication | تسجيل الدخول وإنشاء الحساب وتحقق البريد وإعادة الإرسال ونسيت/إعادة تعيين كلمة المرور وإدارة الجلسة وتحديث Token وتسجيل الخروج عبر AuthController وAuthRepository |
+| User Profile | قراءة بيانات المستخدم عبر `ProfileCubit → UserRepository → RemoteDataSource → GET /users/me` |
+| Chat | قائمة المحادثات، فتح محادثة، إرسال رسالة، استقبال الرد، Streaming/SSE، وإعادة توليد الرد عبر MessageRepository |
+| AI Models | تحميل كتالوج النماذج واختيار النموذج عبر ModelsCubit وAIRepository |
+| Conversations | عرض وإنشاء وتعديل عنوان وحذف المحادثات، والبحث في المحادثات |
+| Files | عرض ورفع وحذف الملفات عبر FilesCubit وFileRepository |
+| Notifications | عرض قائمة الإشعارات عبر NotificationsCubit وNotificationRepository |
+| Agents | عرض قائمة الوكلاء عبر AgentsCubit وAgentRepository |
+| Subscriptions | عرض خطط الاشتراك والاشتراك الحالي عبر SubscriptionsCubit وSubscriptionRepository، دون تنفيذ شراء فعلي |
+| Payments | عرض سجل المدفوعات عبر PaymentsCubit وPaymentRepository، دون Checkout أو Payment Confirmation |
+| Settings | تغيير اللغة والمظهر وإدارة التفضيلات محليًا |
+| Routing | GoRouter مع Auth Guards وFeature Flags وStateful Shell للتبويبات |
+| حالات الواجهة | Loading وEmpty وError states حسب استجابة المسارات المتاحة |
 
-**Dependency rule:** Widgets → Cubits → Repositories → Data Sources. Widgets never touch the network, storage, or business logic.
+## الميزات الجزئية
 
-## Getting started
+الميزات التالية لها جزء داخلي موجود لكن لم تكتمل كوظائف مستخدم نهائية: Google Sign-In وFacebook Login بحسب إعدادات SDK، حذف الرسائل، البحث العام، إلغاء الاشتراك، عمليات Agent CRUD وRuns، إجراءات قراءة الإشعارات، وعمليات Payment Intent/Checkout/Confirmation.
 
-```bash
-# 1. Fetch dependencies (SDK >= 3.8)
-flutter pub get
+## Backend Contracts غير المنفذة كميزات
 
-# 2. Run (development flavor — all feature flags enabled)
-flutter run --dart-define=FLAVOR=development
-```
+توجد عقود ومسارات API دون شاشة أو State أو مسار مستخدم مكتمل لبعض العمليات، ومنها تعديل الملف الشخصي وتغيير كلمة المرور وحذف الحساب ورفع Avatar، وتنزيل الملفات والبحث في الملفات، وAgent CRUD وRuns، وMark Notification as Read/Read All، وRAG Documents وRAG Query، وPayment Intent وعمليات الدفع النهائية، إضافة إلى Health endpoint.
 
-> Platform folders (`android/`, `ios/`, …) are generated from Android Studio / the Flutter CLI once the core code is final:
-> ```bash
-> flutter create --org com.hajeen --project-name ai_chat .
-> ```
+وجود Endpoint أو Model لا يعني أن الميزة متاحة للمستخدم أو أن Backend يعمل. هذه العناصر محفوظة كـ contracts تمهيدًا للتكامل اللاحق.
 
-## Environment variables (build-time `--dart-define`)
+## الميزات غير الموجودة
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `FLAVOR` | `production` | `development` / `staging` / `production` |
-| `API_BASE_URL` | `https://api.hajeen.ai` | REST API base |
-| `WS_BASE_URL` | `wss://ws.hajeen.ai` | streaming gateway |
-| `API_VERSION` | `v1` | API version prefix |
-| `APP_NAME` / `APP_VERSION` | Hajeen AI / 1.0.0+1 | branding |
+لا توجد حاليًا شاشة Checkout مستقلة، ولا شاشة تأكيد دفع، ولا واجهة RAG/Knowledge Base، ولا واجهات كاملة لتعديل الملف الشخصي أو تغيير كلمة المرور أو حذف الحساب أو إدارة Avatar. كما لا توجد واجهات Agent CRUD/Runs أو إجراءات إشعارات Mark as Read.
 
-Environment-specific overrides live in `lib/core/config/environments/`.
+## Local فقط
 
-## Feature flags
+تغيير المظهر واللغة، حالة إكمال Onboarding، التخزين المحلي، التخزين الآمن للجلسة والتوكنات، التوجيه وحراسة المسارات، وحالات العرض العامة لا تحتاج Backend بذاتها. أما Cache المحادثات وبعض بيانات الجلسة فتبقى محلية ضمن حدود استخدامها الحالي ولا تمثل بيانات Backend بديلة.
 
-The `FeatureFlags` snapshot in `lib/core/config/app_config.dart` gates routes via `RouteGuard.featureFlagGuard`. All flags are enabled in every environment for now; flip them per-environment as features ship.
+## المنصات
 
-## Features
+لا يحتوي المستودع حاليًا على `android/` أو `ios/` أو `web/` أو `windows/` أو `macos/` أو `linux/`. ستتم إضافة هذه المنصات لاحقًا دفعة واحدة كما هو مخطط.
 
-- 💬 Chat with real-time streaming (SSE), regeneration and clipboard actions
-- 🧠 AI model catalogue with capability details and provider badges
-- 🗂️ Conversation list with search, pinning and offline cache
-- 🔐 Full auth flow: splash, onboarding, login, register, forgot/reset password, email verification (token refresh handled by the network layer)
-- 📁 Files, notifications, agents and payment history screens
-- 💳 Subscription plans + current plan card
-- 🌙 Dark / light themes + Arabic / English with RTL
+## آخر حالة للتحقق
 
-## Testing & analysis
+تم تنفيذ التحقق على نسخة المشروع قبل تنظيف المنصات والتوثيق:
 
-```bash
-flutter analyze
-flutter test
-```
+| الأمر | النتيجة |
+|---|---|
+| `flutter pub get` | نجح |
+| `flutter analyze` | اكتمل مع 259 issue: صفر أخطاء، 11 warning، و248 info |
+| `flutter test` | نجح، مع 93 اختبارًا ناجحًا |
+| `flutter build web --release` | نجح سابقًا قبل حذف مجلد Web عمدًا |
+| `git diff --check` | نجح في آخر تحقق للتعديلات البرمجية السابقة |
 
-## Repository layout notes
+لم يتم إصلاح ملاحظات analyzer في عملية تنظيف المستودع الحالية، ولم يتم تغيير `lib/` أو `assets/` أو `test/`.
 
-- `lib/data/repositories/*` implement `lib/data/repositories/*_repository.dart` interfaces; cubits consume the interfaces (dependency inversion).
-- `lib/core/routes/app_router.dart` declares every route; `lib/presentation/routing/router_page_factory.dart` maps them to screens.
-- `lib/presentation/blocs/auth_controller.dart` drives auth state and the router guards.
+## نطاق هذه المرحلة
+
+هذه المرحلة مخصصة لتنظيف بنية المستودع فقط. لا تشمل Backend Integration أو حذف Dead Code أو استكمال الميزات أو تعديل API Contracts أو إضافة Mock/Fake/Dummy data.
