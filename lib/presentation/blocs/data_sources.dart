@@ -1,10 +1,13 @@
 import 'package:ai_chat/core/di/injection.dart';
 import 'package:ai_chat/data/datasources/local/local_data_source.dart';
 import 'package:ai_chat/data/datasources/remote/remote_data_source.dart';
+import 'package:ai_chat/data/repositories/agent_repository.dart';
 import 'package:ai_chat/data/repositories/ai_repository.dart';
 import 'package:ai_chat/data/repositories/conversation_repository.dart';
 import 'package:ai_chat/data/repositories/file_repository.dart';
 import 'package:ai_chat/data/repositories/message_repository.dart';
+import 'package:ai_chat/data/repositories/notification_repository.dart';
+import 'package:ai_chat/data/repositories/payment_repository.dart';
 import 'package:ai_chat/data/repositories/subscription_repository.dart';
 
 /// Composition root for the presentation state-management layer.
@@ -41,3 +44,13 @@ SubscriptionRepository buildSubscriptionRepository() =>
 
 /// Builds the [FileRepository] registered in the DI container.
 FileRepository buildFileRepository() => sl<FileRepository>();
+
+/// Builds the [PaymentRepository] registered in the DI container.
+PaymentRepository buildPaymentRepository() => sl<PaymentRepository>();
+
+/// Builds the [AgentRepository] registered in the DI container.
+AgentRepository buildAgentRepository() => sl<AgentRepository>();
+
+/// Builds the [NotificationRepository] registered in the DI container.
+NotificationRepository buildNotificationRepository() =>
+    sl<NotificationRepository>();

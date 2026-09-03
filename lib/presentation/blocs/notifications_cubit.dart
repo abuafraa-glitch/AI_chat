@@ -1,4 +1,4 @@
-import 'package:ai_chat/data/datasources/remote/remote_data_source.dart';
+import 'package:ai_chat/data/repositories/notification_repository.dart';
 import 'package:ai_chat/data/models/notification_model.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -40,18 +40,18 @@ final class NotificationsState extends Equatable {
 
 /// Manages the in-app notification feed.
 final class NotificationsCubit extends Cubit<NotificationsState> {
-  /// Creates a [NotificationsCubit] wired to [remoteDataSource].
-  NotificationsCubit({required RemoteDataSource remoteDataSource})
-    : _remote = remoteDataSource,
+  /// Creates a [NotificationsCubit] wired to [repository].
+  NotificationsCubit({required NotificationRepository repository})
+    : _repository = repository,
       super(const NotificationsState());
 
-  final RemoteDataSource _remote;
+  final NotificationRepository _repository;
 
   /// Loads the notification feed.
   Future<void> load() async {
     emit(state.copyWith(isLoading: true, error: null));
     try {
-      final items = await _remote.getNotifications();
+      final items = await _repository.getNotifications();
       emit(state.copyWith(items: items, isLoading: false));
     } on Exception catch (error) {
       emit(state.copyWith(isLoading: false, error: error.toString()));

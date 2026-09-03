@@ -4,13 +4,19 @@ import 'package:ai_chat/core/routes/route_names.dart';
 import 'package:ai_chat/core/widgets/app_scaffold.dart';
 import 'package:ai_chat/core/widgets/buttons/app_button.dart';
 import 'package:ai_chat/core/widgets/dialogs/confirmation_dialog.dart';
+import 'package:ai_chat/core/widgets/empty_state.dart';
+import 'package:ai_chat/core/widgets/error_view.dart';
+import 'package:ai_chat/core/widgets/loaders/loading_indicator.dart';
 import 'package:ai_chat/presentation/blocs/auth_controller.dart';
+import 'package:ai_chat/presentation/blocs/profile_cubit.dart';
+import 'package:ai_chat/data/repositories/user_repository.dart';
 import 'package:ai_chat/presentation/blocs/data_sources.dart';
 import 'package:ai_chat/presentation/blocs/subscriptions_cubit.dart';
 import 'package:ai_chat/presentation/widgets/formatters.dart';
 import 'package:ai_chat/presentation/widgets/localized_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:nested/nested.dart';
 
 /// Profile tab.
 ///
@@ -51,46 +57,62 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Profile data is unavailable until it is returned by the backend.
-    const displayName = '';
-    const email = '';
-
-    return BlocProvider<SubscriptionsCubit>(
-      // Subscription data is backend-owned and is loaded only by an explicit
-      // user action after backend integration is enabled.
-      create: (_) => SubscriptionsCubit(repository: buildSubscriptionRepository()),
+    return MultiBlocProvider(
+      providers: <SingleChildWidget>[
+        BlocProvider<ProfileCubit>(
+          create: (_) => ProfileCubit(repository: sl<UserRepository>())..load(),
+        ),
+        BlocProvider<SubscriptionsCubit>(
+          create: (_) => SubscriptionsCubit(repository: buildSubscriptionRepository())..load(),
+        ),
+      ],
       child: AppScaffold(
         appBar: AppBar(
           title: Text(localizedText(context, 'Profile', 'الملف الشخصي')),
         ),
-        body: _ProfileBody(
-          displayName: displayName,
-          email: email,
-          initials: _initialsOf(displayName),
-          confirmSignOut: () => _confirmSignOut(context),
-        ),
+        body: _ProfileBody(confirmSignOut: () => _confirmSignOut(context)),
       ),
     );
   }
 }
 
-class _ProfileBody extends StatelessWidget {
-  const _ProfileBody({
-    required this.displayName,
-    required this.email,
-    required this.initials,
-    required this.confirmSignOut,
-  });
+String _profileInitialsOf(String name) {
+  final parts = name.trim().split(RegExp(r'\s+'));
+  if (parts.isEmpty || parts.first.isEmpty) return '';
+  final first = parts.first[0].toUpperCase();
+  final last = parts.length > 1 ? parts.last[0].toUpperCase() : '';
+  return '$first$last';
+}
 
-  final String displayName;
-  final String email;
-  final String initials;
+class _ProfileBody extends StatelessWidget {
+  const _ProfileBody({required this.confirmSignOut});
+
   final Future<void> Function() confirmSignOut;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final profileCubit = context.watch<ProfileCubit>();
+    final profileState = profileCubit.state;
     final subscriptionState = context.watch<SubscriptionsCubit>().state;
+    if (profileState.isLoading && profileState.user == null) {
+      return const Center(child: LoadingIndicator());
+    }
+    if (profileState.error != null && profileState.user == null) {
+      return ErrorView(description: profileState.error, onRetry: profileCubit.load);
+    }
+    final user = profileState.user;
+    if (user == null) {
+      return EmptyState(
+        variant: EmptyStateVariant.custom,
+        icon: Icons.person_outline,
+        title: localizedText(context, 'No profile data', 'لا توجد بيانات للملف الشخصي'),
+        description: localizedText(context, 'Profile data will appear when returned by the backend.', 'ستظهر بيانات الملف عند إرجاعها من الخادم.'),
+      );
+    }
+    final displayName = user['name'] is String ? user['name'] as String : '';
+    final email = user['email'] is String ? user['email'] as String : '';
+    final initials = _profileInitialsOf(displayName);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),

@@ -1,4 +1,4 @@
-import 'package:ai_chat/data/datasources/remote/remote_data_source.dart';
+import 'package:ai_chat/data/repositories/payment_repository.dart';
 import 'package:ai_chat/data/models/payment_model.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -40,18 +40,18 @@ final class PaymentsState extends Equatable {
 
 /// Manages the user's payment history.
 final class PaymentsCubit extends Cubit<PaymentsState> {
-  /// Creates a [PaymentsCubit] wired to [remoteDataSource].
-  PaymentsCubit({required RemoteDataSource remoteDataSource})
-    : _remote = remoteDataSource,
+  /// Creates a [PaymentsCubit] wired to [repository].
+  PaymentsCubit({required PaymentRepository repository})
+    : _repository = repository,
       super(const PaymentsState());
 
-  final RemoteDataSource _remote;
+  final PaymentRepository _repository;
 
   /// Loads the payment history.
   Future<void> load() async {
     emit(state.copyWith(isLoading: true, error: null));
     try {
-      final items = await _remote.getPaymentHistory();
+      final items = await _repository.getPaymentHistory();
       emit(state.copyWith(items: items, isLoading: false));
     } on Exception catch (error) {
       emit(state.copyWith(isLoading: false, error: error.toString()));

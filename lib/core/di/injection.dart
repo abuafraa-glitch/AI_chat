@@ -15,6 +15,10 @@ import 'package:ai_chat/data/datasources/local/local_data_source.dart';
 import 'package:ai_chat/data/datasources/local/local_data_source_impl.dart';
 import 'package:ai_chat/data/datasources/remote/remote_data_source.dart';
 import 'package:ai_chat/data/datasources/remote/remote_data_source_impl.dart';
+import 'package:ai_chat/data/repositories/agent_repository.dart';
+import 'package:ai_chat/data/repositories/auth_repository.dart';
+import 'package:ai_chat/data/repositories/auth_repository_impl.dart';
+import 'package:ai_chat/data/repositories/agent_repository_impl.dart';
 import 'package:ai_chat/data/repositories/ai_repository.dart';
 import 'package:ai_chat/data/repositories/ai_repository_impl.dart';
 import 'package:ai_chat/data/repositories/conversation_repository.dart';
@@ -23,8 +27,14 @@ import 'package:ai_chat/data/repositories/file_repository.dart';
 import 'package:ai_chat/data/repositories/file_repository_impl.dart';
 import 'package:ai_chat/data/repositories/message_repository.dart';
 import 'package:ai_chat/data/repositories/message_repository_impl.dart';
+import 'package:ai_chat/data/repositories/notification_repository.dart';
+import 'package:ai_chat/data/repositories/notification_repository_impl.dart';
+import 'package:ai_chat/data/repositories/payment_repository.dart';
+import 'package:ai_chat/data/repositories/payment_repository_impl.dart';
 import 'package:ai_chat/data/repositories/subscription_repository.dart';
 import 'package:ai_chat/data/repositories/subscription_repository_impl.dart';
+import 'package:ai_chat/data/repositories/user_repository.dart';
+import 'package:ai_chat/data/repositories/user_repository_impl.dart';
 import 'package:ai_chat/presentation/blocs/auth_controller.dart';
 import 'package:ai_chat/presentation/blocs/localization_cubit.dart';
 import 'package:ai_chat/presentation/blocs/models_cubit.dart';
@@ -123,6 +133,10 @@ Future<void> initDependencies() async {
 
   // ── Repositories ──────────────────────────────────────────────────────────
 
+  sl.registerLazySingleton<AuthRepository>(
+    () => AuthRepositoryImpl(remoteDataSource: sl<RemoteDataSource>()),
+  );
+
   sl.registerLazySingleton<AIRepository>(
     () => AIRepositoryImpl(
       remoteDataSource: sl<RemoteDataSource>(),
@@ -162,6 +176,22 @@ Future<void> initDependencies() async {
     () => FileRepositoryImpl(remoteDataSource: sl<RemoteDataSource>()),
   );
 
+  sl.registerLazySingleton<PaymentRepository>(
+    () => PaymentRepositoryImpl(remoteDataSource: sl<RemoteDataSource>()),
+  );
+
+  sl.registerLazySingleton<AgentRepository>(
+    () => AgentRepositoryImpl(remoteDataSource: sl<RemoteDataSource>()),
+  );
+
+  sl.registerLazySingleton<NotificationRepository>(
+    () => NotificationRepositoryImpl(remoteDataSource: sl<RemoteDataSource>()),
+  );
+
+  sl.registerLazySingleton<UserRepository>(
+    () => UserRepositoryImpl(remoteDataSource: sl<RemoteDataSource>()),
+  );
+
   // ── Presentation state management ─────────────────────────────────────────
 
   // ThemeCubit: factory — one instance per widget subtree.
@@ -179,7 +209,7 @@ Future<void> initDependencies() async {
   // AuthController: singleton ChangeNotifier driving the router guards.
   sl.registerLazySingleton<AuthController>(
     () => AuthController(
-      remoteDataSource: sl<RemoteDataSource>(),
+      repository: sl<AuthRepository>(),
       localDataSource: sl<LocalDataSource>(),
       secureStorage: sl<SecureStorageService>(),
       localStorage: sl<LocalStorageService>(),

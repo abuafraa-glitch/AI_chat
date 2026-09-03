@@ -1,4 +1,4 @@
-import 'package:ai_chat/data/datasources/remote/remote_data_source.dart';
+import 'package:ai_chat/data/repositories/agent_repository.dart';
 import 'package:ai_chat/data/models/agent_model.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -40,18 +40,18 @@ final class AgentsState extends Equatable {
 
 /// Manages the AI agent catalogue.
 final class AgentsCubit extends Cubit<AgentsState> {
-  /// Creates an [AgentsCubit] wired to [remoteDataSource].
-  AgentsCubit({required RemoteDataSource remoteDataSource})
-    : _remote = remoteDataSource,
+  /// Creates an [AgentsCubit] wired to [repository].
+  AgentsCubit({required AgentRepository repository})
+    : _repository = repository,
       super(const AgentsState());
 
-  final RemoteDataSource _remote;
+  final AgentRepository _repository;
 
   /// Loads the agent catalogue.
   Future<void> load() async {
     emit(state.copyWith(isLoading: true, error: null));
     try {
-      final items = await _remote.getAgents();
+      final items = await _repository.getAgents();
       emit(state.copyWith(items: items, isLoading: false));
     } on Exception catch (error) {
       emit(state.copyWith(isLoading: false, error: error.toString()));

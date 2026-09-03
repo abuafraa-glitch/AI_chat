@@ -21,7 +21,7 @@ class NotificationsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider<NotificationsCubit>(
       create: (context) =>
-          NotificationsCubit(remoteDataSource: buildRemoteDataSource()),
+          NotificationsCubit(repository: buildNotificationRepository())..load(),
       child: const _NotificationsView(),
     );
   }

@@ -1,136 +1,71 @@
 import 'package:ai_chat/core/widgets/app_scaffold.dart';
+import 'package:ai_chat/core/widgets/empty_state.dart';
+import 'package:ai_chat/core/widgets/error_view.dart';
+import 'package:ai_chat/core/widgets/loaders/loading_indicator.dart';
+import 'package:ai_chat/presentation/blocs/data_sources.dart';
+import 'package:ai_chat/presentation/blocs/payments_cubit.dart';
 import 'package:ai_chat/presentation/widgets/localized_text.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
-/// UI-only payment screen. It intentionally performs no payment or network call.
-class PaymentsScreen extends StatefulWidget {
+/// Displays payment history returned by the backend contract.
+/// Payment creation and checkout are intentionally not implemented here.
+class PaymentsScreen extends StatelessWidget {
   const PaymentsScreen({super.key});
 
   @override
-  State<PaymentsScreen> createState() => _PaymentsScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider<PaymentsCubit>(
+      create: (_) => PaymentsCubit(repository: buildPaymentRepository())..load(),
+      child: const _PaymentsView(),
+    );
+  }
 }
 
-enum PaymentUiStatus { idle, pending, success, failure, canceled }
-
-class _PaymentsScreenState extends State<PaymentsScreen> {
-  PaymentUiStatus status = PaymentUiStatus.idle;
+class _PaymentsView extends StatelessWidget {
+  const _PaymentsView();
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final cubit = context.watch<PaymentsCubit>();
+    final state = cubit.state;
     return AppScaffold(
-      appBar: AppBar(title: Text(localizedText(context, 'Payment', 'الدفع'))),
-      body: ListView(
-        padding: const EdgeInsets.all(20),
-        children: <Widget>[
-          _SectionCard(
-            title: localizedText(context, 'Selected plan', 'الخطة المختارة'),
-            child: _Placeholder(text: localizedText(context, 'Waiting for plan data', 'بانتظار بيانات الخطة')),
-          ),
-          _SectionCard(
-            title: localizedText(context, 'Order summary', 'ملخص العملية'),
-            child: Column(
-              children: <Widget>[
-                _SummaryRow(label: localizedText(context, 'Price', 'السعر'), value: ''),
-                _SummaryRow(label: localizedText(context, 'Currency', 'العملة'), value: ''),
-                _SummaryRow(label: localizedText(context, 'Billing period', 'مدة الاشتراك'), value: ''),
-              ],
-            ),
-          ),
-          _StatusCard(status: status),
-          const SizedBox(height: 16),
-          FilledButton.icon(
-            onPressed: status == PaymentUiStatus.pending ? null : _startPayment,
-            icon: const Icon(Icons.lock_outline),
-            label: Text(localizedText(context, 'Start payment', 'بدء الدفع')),
-          ),
-          const SizedBox(height: 8),
-          OutlinedButton(
-            onPressed: status == PaymentUiStatus.pending ? _cancelPayment : null,
-            child: Text(localizedText(context, 'Cancel', 'إلغاء')),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            localizedText(context, 'Payment provider data will be supplied later.', 'سيتم توفير بيانات مزود الدفع لاحقًا.'),
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall,
-          ),
-        ],
-      ),
+      appBar: AppBar(title: Text(localizedText(context, 'Payment history', 'سجل الدفع'))),
+      body: _content(context, cubit, state),
     );
   }
 
-  void _startPayment() {
-    setState(() => status = PaymentUiStatus.pending);
-  }
-
-  void _cancelPayment() {
-    setState(() => status = PaymentUiStatus.canceled);
-  }
-}
-
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.title, required this.child});
-  final String title;
-  final Widget child;
-  @override
-  Widget build(BuildContext context) => Card(
-        margin: const EdgeInsets.only(bottom: 16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            child,
-          ]),
+  Widget _content(BuildContext context, PaymentsCubit cubit, PaymentsState state) {
+    if (state.isLoading && state.items.isEmpty) {
+      return const Center(child: LoadingIndicator());
+    }
+    if (state.error != null && state.items.isEmpty) {
+      return ErrorView(description: state.error, onRetry: cubit.load);
+    }
+    if (state.items.isEmpty) {
+      return EmptyState(
+        variant: EmptyStateVariant.custom,
+        icon: Icons.receipt_long_outlined,
+        title: localizedText(context, 'No payments yet', 'لا توجد عمليات دفع'),
+        description: localizedText(
+          context,
+          'Payment records will appear here when returned by the backend.',
+          'ستظهر عمليات الدفع هنا عند إرجاعها من الخادم.',
         ),
       );
-}
-
-class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({required this.label, required this.value});
-  final String label;
-  final String value;
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(children: <Widget>[Expanded(child: Text(label)), Text(value)]),
-      );
-}
-
-class _Placeholder extends StatelessWidget {
-  const _Placeholder({required this.text});
-  final String text;
-  @override
-  Widget build(BuildContext context) => Text(text, style: Theme.of(context).textTheme.bodyMedium);
-}
-
-class _StatusCard extends StatelessWidget {
-  const _StatusCard({required this.status});
-  final PaymentUiStatus status;
-  @override
-  Widget build(BuildContext context) {
-    final labels = <PaymentUiStatus, String>{
-      PaymentUiStatus.idle: localizedText(context, 'Ready', 'جاهز'),
-      PaymentUiStatus.pending: localizedText(context, 'Pending', 'قيد الانتظار'),
-      PaymentUiStatus.success: localizedText(context, 'Success', 'نجحت العملية'),
-      PaymentUiStatus.failure: localizedText(context, 'Failed', 'فشلت العملية'),
-      PaymentUiStatus.canceled: localizedText(context, 'Canceled', 'أُلغيت العملية'),
-    };
-    return Card(
-      child: ListTile(
-        leading: Icon(_icon(status)),
-        title: Text(localizedText(context, 'Payment status', 'حالة الدفع')),
-        subtitle: Text(labels[status] ?? ''),
-      ),
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: state.items.length,
+      separatorBuilder: (_, __) => const Divider(height: 1),
+      itemBuilder: (_, index) {
+        final item = state.items[index];
+        return ListTile(
+          leading: const Icon(Icons.receipt_long_outlined),
+          title: Text(item.id),
+          subtitle: Text(item.status),
+        );
+      },
     );
   }
-
-  IconData _icon(PaymentUiStatus value) => switch (value) {
-        PaymentUiStatus.success => Icons.check_circle_outline,
-        PaymentUiStatus.failure => Icons.error_outline,
-        PaymentUiStatus.canceled => Icons.cancel_outlined,
-        PaymentUiStatus.pending => Icons.hourglass_empty,
-        PaymentUiStatus.idle => Icons.info_outline,
-      };
 }

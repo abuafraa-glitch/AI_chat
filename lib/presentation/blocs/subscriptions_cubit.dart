@@ -52,27 +52,22 @@ final class SubscriptionsState extends Equatable {
 
 /// Manages subscription plans and the user's active subscription.
 ///
-/// Data is loaded through [SubscriptionRepository], which applies the
-/// remote-first / cache-fallback policy. A `null` current subscription
-/// simply means the user has not subscribed yet.
+/// Data is loaded through [SubscriptionRepository] from the backend contract.
+/// A `null` current subscription simply means that no active subscription was
+/// returned; no local or fabricated fallback is used.
 final class SubscriptionsCubit extends Cubit<SubscriptionsState> {
   /// Creates a [SubscriptionsCubit] wired to [repository].
-  SubscriptionsCubit({SubscriptionRepository? repository})
+  SubscriptionsCubit({required SubscriptionRepository repository})
     : _repository = repository,
       super(const SubscriptionsState());
 
-  final SubscriptionRepository? _repository;
+  final SubscriptionRepository _repository;
 
   /// Loads subscription plans and the active subscription.
   Future<void> load() async {
-    final repository = _repository;
-    if (repository == null) {
-      emit(state.copyWith(isLoading: false));
-      return;
-    }
     emit(state.copyWith(isLoading: true, error: null));
-    await _loadPlans(repository);
-    await _loadCurrentSubscription(repository);
+    await _loadPlans(_repository);
+    await _loadCurrentSubscription(_repository);
     emit(state.copyWith(isLoading: false));
   }
 
@@ -86,14 +81,14 @@ final class SubscriptionsCubit extends Cubit<SubscriptionsState> {
     }
   }
 
-  /// Loads the active subscription with a local-cache fallback.
+  /// Loads the active subscription from the backend contract.
+
   Future<void> _loadCurrentSubscription(SubscriptionRepository repository) async {
     try {
       final subscription = await repository.getSubscription();
       emit(state.copyWith(currentSubscription: subscription));
     } on Exception {
-      // The repository already served the cache or the call failed;
-      // a missing subscription is a valid state.
+      // An account without an active subscription is a valid empty state.
     }
   }
 }

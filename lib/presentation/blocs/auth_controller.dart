@@ -5,7 +5,7 @@ import 'package:ai_chat/core/services/local_storage_service.dart';
 import 'package:ai_chat/core/services/secure_storage_service.dart';
 import 'package:ai_chat/core/utils/jwt_decoder.dart';
 import 'package:ai_chat/data/datasources/local/local_data_source.dart';
-import 'package:ai_chat/data/datasources/remote/remote_data_source.dart';
+import 'package:ai_chat/data/repositories/auth_repository.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -30,16 +30,16 @@ final class AuthController extends ChangeNotifier
     implements AuthStatusProvider, AuthSessionSink {
   /// Creates an [AuthController] wired to the data layer.
   AuthController({
-    required RemoteDataSource remoteDataSource,
+    required AuthRepository repository,
     required LocalDataSource localDataSource,
     required SecureStorageService secureStorage,
     required LocalStorageService localStorage,
-  }) : _remote = remoteDataSource,
+  }) : _repository = repository,
        _localDataSource = localDataSource,
        _secureStorage = secureStorage,
        _localStorage = localStorage;
 
-  final RemoteDataSource _remote;
+  final AuthRepository _repository;
   final LocalDataSource _localDataSource;
   final SecureStorageService _secureStorage;
   final LocalStorageService _localStorage;
@@ -130,7 +130,7 @@ final class AuthController extends ChangeNotifier
   /// and surface the message.
   // TODO: Backend Integration - Login.
   Future<void> signIn({required String email, required String password}) async {
-    final result = await _remote.login(email: email, password: password);
+    final result = await _repository.login(email: email, password: password);
     await _persistSession(result);
     _status = AuthStatus.authenticated;
     notifyListeners();
@@ -142,7 +142,7 @@ final class AuthController extends ChangeNotifier
     required String provider,
     required String token,
   }) async {
-    final result = await _remote.socialLogin(provider: provider, token: token);
+    final result = await _repository.socialLogin(provider: provider, token: token);
     await _persistSession(result);
     _status = AuthStatus.authenticated;
     notifyListeners();
@@ -202,7 +202,7 @@ final class AuthController extends ChangeNotifier
     required String email,
     required String password,
   }) async {
-    final result = await _remote.register(
+    final result = await _repository.register(
       name: name,
       email: email,
       password: password,
@@ -224,7 +224,7 @@ final class AuthController extends ChangeNotifier
   /// Requests a new verification code for an unverified account.
   // TODO: Backend Integration - Resend Email Verification.
   Future<void> resendVerification(String email) =>
-      _remote.resendVerification(email);
+      _repository.resendVerification(email);
 
   /// Signs the user out, clearing the persisted session.
   // TODO: Backend Integration - Logout.
@@ -233,7 +233,7 @@ final class AuthController extends ChangeNotifier
     // the backend is unreachable, otherwise another account could observe
     // stale persisted data on this device.
     try {
-      await _remote.logout();
+      await _repository.logout();
     } finally {
       await _localDataSource.clearCache();
       await _localDataSource.deleteUser();
@@ -274,7 +274,7 @@ final class AuthController extends ChangeNotifier
 
   /// Initiates the password-recovery flow for [email].
   // TODO: Backend Integration - Forgot Password.
-  Future<void> forgotPassword(String email) => _remote.forgotPassword(email);
+  Future<void> forgotPassword(String email) => _repository.forgotPassword(email);
 
   /// Completes the password-reset flow.
   // TODO: Backend Integration - Reset Password.
@@ -283,7 +283,7 @@ final class AuthController extends ChangeNotifier
     required String token,
     required String password,
   }) {
-    return _remote.resetPassword(
+    return _repository.resetPassword(
       email: email,
       token: token,
       password: password,
@@ -293,7 +293,7 @@ final class AuthController extends ChangeNotifier
   /// Confirms the email address with the emailed [code].
   // TODO: Backend Integration - Email Verification.
   Future<void> verifyEmail({required String email, required String code}) {
-    return _remote.verifyEmail(email: email, code: code);
+    return _repository.verifyEmail(email: email, code: code);
   }
 
   // ── Internal ──────────────────────────────────────────────────────────────
@@ -321,7 +321,7 @@ final class AuthController extends ChangeNotifier
       // Some auth responses return tokens first and expose the profile through
       // /me. Resolve it before marking the session authenticated.
       try {
-        user = await _remote.getCurrentUser();
+        user = await _repository.getCurrentUser();
       } on Object {
         user = null;
       }

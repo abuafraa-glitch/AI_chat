@@ -20,7 +20,7 @@ class AgentsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider<AgentsCubit>(
       create: (context) =>
-          AgentsCubit(remoteDataSource: buildRemoteDataSource()),
+          AgentsCubit(repository: buildAgentRepository())..load(),
       child: const _AgentsView(),
     );
   }

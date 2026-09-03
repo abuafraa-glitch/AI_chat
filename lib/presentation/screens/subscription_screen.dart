@@ -1,5 +1,9 @@
 import 'package:ai_chat/core/widgets/app_scaffold.dart';
+import 'package:ai_chat/core/widgets/empty_state.dart';
+import 'package:ai_chat/core/widgets/error_view.dart';
+import 'package:ai_chat/core/widgets/loaders/loading_indicator.dart';
 import 'package:ai_chat/data/models/subscription_plan_model.dart';
+import 'package:ai_chat/presentation/blocs/data_sources.dart';
 import 'package:ai_chat/presentation/blocs/subscriptions_cubit.dart';
 import 'package:ai_chat/presentation/widgets/localized_text.dart';
 import 'package:flutter/material.dart';
@@ -13,7 +17,8 @@ class SubscriptionScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => BlocProvider<SubscriptionsCubit>(
-        create: (_) => SubscriptionsCubit(),
+        create: (_) =>
+            SubscriptionsCubit(repository: buildSubscriptionRepository())..load(),
         child: const _SubscriptionView(),
       );
 }
@@ -29,7 +34,7 @@ class _SubscriptionView extends StatelessWidget {
     final state = context.watch<SubscriptionsCubit>().state;
     final plans = state.plans;
     final theme = Theme.of(context);
-    final cards = plans.isEmpty ? <SubscriptionPlanModel?>[null, null, null] : plans;
+    final cubit = context.read<SubscriptionsCubit>();
 
     return Theme(
       data: theme.copyWith(scaffoldBackgroundColor: _background),
@@ -66,19 +71,34 @@ class _SubscriptionView extends StatelessWidget {
                 const SizedBox(height: 24),
                 const _BillingSelector(),
                 const SizedBox(height: 28),
-                SizedBox(
-                  height: 500,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    reverse: true,
-                    itemCount: cards.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 12),
-                    itemBuilder: (context, index) => _PlanCard(
-                      plan: cards[index],
-                      highlighted: plans.isNotEmpty && index == plans.length ~/ 2,
+                if (state.isLoading && plans.isEmpty)
+                  const SizedBox(height: 240, child: Center(child: LoadingIndicator()))
+                else if (state.error != null && plans.isEmpty)
+                  SizedBox(height: 240, child: ErrorView(description: state.error, onRetry: cubit.load))
+                else if (plans.isEmpty)
+                  SizedBox(
+                    height: 240,
+                    child: EmptyState(
+                      variant: EmptyStateVariant.custom,
+                      icon: Icons.workspace_premium_outlined,
+                      title: localizedText(context, 'No plans available', 'لا توجد خطط متاحة'),
+                      description: localizedText(context, 'Plans will appear when returned by the backend.', 'ستظهر الخطط عند إرجاعها من الخادم.'),
+                    ),
+                  )
+                else
+                  SizedBox(
+                    height: 500,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      reverse: true,
+                      itemCount: plans.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 12),
+                      itemBuilder: (context, index) => _PlanCard(
+                        plan: plans[index],
+                        highlighted: index == plans.length ~/ 2,
+                      ),
                     ),
                   ),
-                ),
                 const SizedBox(height: 22),
                 const _SecurityBanner(),
                 const SizedBox(height: 18),
@@ -137,7 +157,7 @@ class _SelectorSlot extends StatelessWidget {
 
 class _PlanCard extends StatelessWidget {
   const _PlanCard({required this.plan, required this.highlighted});
-  final SubscriptionPlanModel? plan;
+  final SubscriptionPlanModel plan;
   final bool highlighted;
   @override
   Widget build(BuildContext context) {
@@ -149,17 +169,26 @@ class _PlanCard extends StatelessWidget {
       child: Column(children: <Widget>[
         if (highlighted) Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: const Color(0xFF263967), borderRadius: BorderRadius.circular(18)), child: const SizedBox(height: 10, width: 65)),
         const SizedBox(height: 18),
-        Icon(plan == null ? Icons.apps_outlined : Icons.workspace_premium_outlined, color: highlighted ? Colors.deepPurpleAccent : _subscriptionBlue, size: 48),
+        const Icon(Icons.workspace_premium_outlined, color: _subscriptionBlue, size: 48),
         const SizedBox(height: 16),
-        _BlankLine(width: highlighted ? 95 : 75, height: 22),
-        const SizedBox(height: 22),
-        _BlankLine(width: 100, height: 38),
-        const SizedBox(height: 10),
-        const _BlankLine(width: 60, height: 14),
-        const SizedBox(height: 22),
-        SizedBox(width: double.infinity, child: OutlinedButton(onPressed: null, child: const SizedBox(height: 18))),
+        Text(plan.name, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w700), textAlign: TextAlign.center),
+        const SizedBox(height: 8),
+        if (plan.description.isNotEmpty) Text(plan.description, style: const TextStyle(color: Color(0xFF9CAAC9)), textAlign: TextAlign.center, maxLines: 3, overflow: TextOverflow.ellipsis),
+        const SizedBox(height: 16),
+        Text(plan.price == null ? localizedText(context, 'Price unavailable', 'السعر غير متاح') : '${plan.price} ${plan.currency ?? ''}', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800)),
         const Divider(height: 28, color: Color(0xFF25375B)),
-        ...List<Widget>.generate(4, (_) => const Padding(padding: EdgeInsets.symmetric(vertical: 9), child: Row(children: <Widget>[Icon(Icons.check_circle_outline, color: _subscriptionBlue, size: 21), SizedBox(width: 8), Expanded(child: _BlankLine(height: 13))]))),
+        ...plan.features.map(
+          (feature) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Row(
+              children: <Widget>[
+                const Icon(Icons.check_circle_outline, color: _subscriptionBlue, size: 21),
+                const SizedBox(width: 8),
+                Expanded(child: Text(feature, style: const TextStyle(color: Colors.white70))),
+              ],
+            ),
+          ),
+        ),
       ]),
     );
     return border == null ? child : DecoratedBox(decoration: BoxDecoration(gradient: border, borderRadius: BorderRadius.circular(27)), child: Padding(padding: const EdgeInsets.all(2), child: child));
