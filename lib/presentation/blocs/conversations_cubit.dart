@@ -1,0 +1,188 @@
+import 'package:ai_chat/data/models/conversation_model.dart';
+import 'package:ai_chat/data/repositories/conversation_repository.dart';
+import 'package:equatable/equatable.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+/// Immutable state for the conversation list and search.
+final class ConversationsState extends Equatable {
+  /// Creates a [ConversationsState].
+  const ConversationsState({
+    this.conversations = const <ConversationModel>[],
+    this.searchResults = const <ConversationModel>[],
+    this.isLoading = false,
+    this.isSearching = false,
+    this.error,
+  });
+
+  /// Conversations loaded for the current user.
+  final List<ConversationModel> conversations;
+
+  /// Results of the most recent remote search.
+  final List<ConversationModel> searchResults;
+
+  /// `true` while the list is being fetched.
+  final bool isLoading;
+
+  /// `true` while a remote search is in flight.
+  final bool isSearching;
+
+  /// Human-readable error message, or `null` when healthy.
+  final String? error;
+
+  /// Returns a copy with the given fields replaced.
+  ConversationsState copyWith({
+    List<ConversationModel>? conversations,
+    List<ConversationModel>? searchResults,
+    bool? isLoading,
+    bool? isSearching,
+    String? error,
+  }) {
+    return ConversationsState(
+      conversations: conversations ?? this.conversations,
+      searchResults: searchResults ?? this.searchResults,
+      isLoading: isLoading ?? this.isLoading,
+      isSearching: isSearching ?? this.isSearching,
+      error: error ?? this.error,
+    );
+  }
+
+  @override
+  List<Object?> get props => <Object?>[
+    conversations,
+    searchResults,
+    isLoading,
+    isSearching,
+    error,
+  ];
+}
+
+/// Manages the user's conversation list and search.
+///
+/// Loads the list through [ConversationRepository] (remote-first with a
+/// cache fallback) and exposes pure filtering/sorting helpers so the
+/// presentation layer stays free of logic. Remote search results are
+/// stored separately in [ConversationsState.searchResults].
+final class ConversationsCubit extends Cubit<ConversationsState> {
+  /// Creates a [ConversationsCubit] wired to [repository].
+  ConversationsCubit({required ConversationRepository repository})
+    : _repository = repository,
+      super(const ConversationsState());
+
+  final ConversationRepository _repository;
+
+  /// Creates a new conversation on the backend and returns it.
+  ///
+  /// This is the single correct entry point for starting a new chat:
+  /// the conversation is created server-side first, the returned
+  /// [ConversationModel] carries the authoritative server ID, and the
+  /// list state is updated. Callers must navigate using the returned
+  /// `id` — never a locally fabricated timestamp id — so the app
+  /// never believes a conversation exists before the backend does.
+  Future<ConversationModel> createConversation([
+    Map<String, dynamic>? data,
+  ]) async {
+    emit(state.copyWith(isLoading: true, error: null));
+    try {
+      final conversation = await _repository.createConversation(
+        data ?? const <String, dynamic>{},
+      );
+      emit(
+        state.copyWith(
+          conversations: <ConversationModel>[
+            conversation,
+            ...state.conversations,
+          ],
+          isLoading: false,
+        ),
+      );
+      return conversation;
+    } on Exception catch (error) {
+      emit(state.copyWith(isLoading: false, error: error.toString()));
+      rethrow;
+    }
+  }
+
+  /// Loads the conversation list.
+  Future<void> loadConversations() async {
+    emit(state.copyWith(isLoading: true, error: null));
+    try {
+      final conversations = await _repository.getConversations();
+      emit(state.copyWith(conversations: conversations, isLoading: false));
+    } on Exception catch (error) {
+      emit(state.copyWith(isLoading: false, error: error.toString()));
+    }
+  }
+
+  /// Persists conversation metadata through the existing repository.
+  Future<void> saveConversation(String id) async {
+    final conversation = state.conversations.where((item) => item.id == id).firstOrNull;
+    if (conversation == null) return;
+    final updated = await _repository.updateConversation(id: id, data: conversation.toJson());
+    final conversations = state.conversations.map((item) => item.id == id ? updated : item).toList();
+    emit(state.copyWith(conversations: conversations));
+  }
+
+  /// Renames a conversation and updates the list state.
+  Future<void> renameConversation({required String id, required String title}) async {
+    final trimmed = title.trim();
+    if (trimmed.isEmpty) return;
+    final updated = await _repository.updateConversation(id: id, data: <String, dynamic>{'title': trimmed});
+    final conversations = state.conversations.map((item) => item.id == id ? updated : item).toList();
+    emit(state.copyWith(conversations: conversations));
+  }
+
+  /// Deletes a conversation and removes it from the list state.
+  Future<void> deleteConversation(String id) async {
+    await _repository.deleteConversation(id);
+    emit(state.copyWith(conversations: state.conversations.where((item) => item.id != id).toList()));
+  }
+
+  /// Runs a remote search for [query] and stores the results.
+  ///
+  /// Empty queries clear the results and are a no-op for the server.
+  Future<void> search(String query) async {
+    final normalized = query.trim();
+    if (normalized.isEmpty) {
+      emit(
+        state.copyWith(
+          searchResults: const <ConversationModel>[],
+          isSearching: false,
+        ),
+      );
+      return;
+    }
+    emit(state.copyWith(isSearching: true, error: null));
+    try {
+      final results = await _repository.searchConversations(normalized);
+      emit(state.copyWith(searchResults: results, isSearching: false));
+    } on Exception catch (error) {
+      emit(state.copyWith(isSearching: false, error: error.toString()));
+    }
+  }
+
+  /// Filters [state.conversations] by [query] against the title and
+  /// last-message snippet, then sorts pinned conversations first and
+  /// the remainder by most recently updated.
+  List<ConversationModel> filterAndSort(String query) {
+    final normalized = query.trim().toLowerCase();
+    final filtered = state.conversations.where((conversation) {
+      if (normalized.isEmpty) {
+        return true;
+      }
+      final title = conversation.title.toLowerCase();
+      final snippet = conversation.lastMessageSnippet?.toLowerCase() ?? '';
+      return title.contains(normalized) || snippet.contains(normalized);
+    }).toList();
+
+    filtered.sort((a, b) {
+      final aPinned = a.status == ConversationStatus.pinned;
+      final bPinned = b.status == ConversationStatus.pinned;
+      if (aPinned != bPinned) {
+        return aPinned ? -1 : 1;
+      }
+      return b.updatedAt.compareTo(a.updatedAt);
+    });
+
+    return filtered;
+  }
+}
