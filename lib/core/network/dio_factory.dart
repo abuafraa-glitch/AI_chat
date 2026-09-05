@@ -62,7 +62,7 @@ abstract final class DioFactory {
       // Backend integration is deliberately opt-in. Enable it only in a
       // deployment build with --dart-define=ENABLE_BACKEND=true.
       if (!const bool.fromEnvironment('ENABLE_BACKEND'))
-        _BackendGateInterceptor(),
+        _BackendGateInterceptor(config),
       AuthInterceptor(
         dio: dio,
         tokenProvider: tokenProvider,
@@ -82,8 +82,16 @@ abstract final class DioFactory {
 /// Stops feature actions from contacting a real server before integration is
 /// explicitly enabled. The API and repository contracts remain intact.
 final class _BackendGateInterceptor extends Interceptor {
+  _BackendGateInterceptor(this._config);
+
+  final AppConfig _config;
+
   @override
   void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+    if (options.uri.host == Uri.parse(_config.resolvedAiApiUrl).host) {
+      handler.next(options);
+      return;
+    }
     handler.reject(
       DioException(
         requestOptions: options,

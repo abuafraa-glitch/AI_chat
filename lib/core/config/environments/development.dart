@@ -25,6 +25,20 @@ base class DevelopmentConfig extends EnvironmentConfig {
         // TODO: provide the backend URL through deployment configuration.
         defaultValue: '',
       ),
+      aiBaseUrl: const String.fromEnvironment(
+        'AI_BASE_URL',
+        defaultValue: 'https://cbbm90nleo4jji-8000.proxy.runpod.net/v1',
+      ),
+      aiModel: const String.fromEnvironment(
+        'AI_MODEL',
+        defaultValue: 'Qwen/Qwen2.5-7B-Instruct',
+      ),
+      aiApiKey: const String.fromEnvironment('AI_API_KEY'),
+      aiSystemPrompt: const String.fromEnvironment(
+        'AI_SYSTEM_PROMPT',
+        defaultValue: 'أنت مساعد ذكاء اصطناعي يدعى هجين.',
+      ),
+      aiMaxTokens: const int.fromEnvironment('AI_MAX_TOKENS', defaultValue: 150),
       webSocketUrl: const String.fromEnvironment(
         'WS_BASE_URL',
         defaultValue: '',

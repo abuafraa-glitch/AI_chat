@@ -1,6 +1,7 @@
 import 'package:ai_chat/core/errors/exceptions.dart';
 import 'dart:convert';
 
+import 'package:ai_chat/core/config/app_config.dart';
 import 'package:ai_chat/core/network/api_consumer.dart';
 import 'package:ai_chat/core/network/endpoints.dart';
 import 'package:ai_chat/core/network/network_response.dart' as net;
@@ -244,9 +245,44 @@ class RemoteDataSourceImpl implements RemoteDataSource {
     String? cancelToken,
   }) async* {
     try {
+      final configuredMessages = data?['messages'];
+      final history = configuredMessages is List
+          ? configuredMessages
+                .whereType<Map>()
+                .map(
+                  (item) => <String, String>{
+                    'role': item['role']?.toString() ?? 'user',
+                    'content': item['content']?.toString() ?? '',
+                  },
+                )
+                .where((item) => item['role'] != 'system')
+                .toList(growable: false)
+          : <Map<String, String>>[
+              <String, String>{
+                'role': 'user',
+                'content': data?['content']?.toString() ?? '',
+              },
+            ];
+      final messages = <Map<String, String>>[
+        <String, String>{
+          'role': 'system',
+          'content': AppConfig.instance.aiSystemPrompt,
+        },
+        ...history,
+      ];
+      final aiApiKey = AppConfig.instance.aiApiKey.trim();
       await for (final event in _apiConsumer.streamRequest(
-        path: Endpoints.streamMessage(conversationId),
-        data: data,
+        path: Endpoints.aiChatCompletions,
+        baseUrl: AppConfig.instance.resolvedAiApiUrl,
+        data: <String, dynamic>{
+          'model': AppConfig.instance.aiModel,
+          'messages': messages,
+          'max_tokens': AppConfig.instance.aiMaxTokens,
+          'stream': true,
+        },
+        headers: aiApiKey.isEmpty
+            ? null
+            : <String, String>{'Authorization': 'Bearer $aiApiKey'},
         cancelToken: cancelToken,
       )) {
         final text = event.trim();
@@ -263,8 +299,14 @@ class RemoteDataSourceImpl implements RemoteDataSource {
           }
           final choices = decoded['choices'];
           if (choices is List && choices.isNotEmpty) {
-            final delta = choices.first['delta'];
-            final content = delta is Map ? delta['content'] : null;
+            final firstChoice = choices.first;
+            final delta = firstChoice is Map ? firstChoice['delta'] : null;
+            final message = firstChoice is Map ? firstChoice['message'] : null;
+            final content = delta is Map
+                ? delta['content']
+                : message is Map
+                ? message['content']
+                : null;
             if (content is String && content.isNotEmpty) yield content;
           } else if (decoded['response'] is String) {
             yield decoded['response'] as String;

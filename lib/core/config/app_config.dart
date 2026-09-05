@@ -115,6 +115,11 @@ class AppConfig {
     required this.appName,
     required this.appVersion,
     required this.apiBaseUrl,
+    this.aiBaseUrl = '',
+    this.aiModel = 'Qwen/Qwen2.5-7B-Instruct',
+    this.aiApiKey = '',
+    this.aiSystemPrompt = 'أنت مساعد ذكاء اصطناعي يدعى هجين.',
+    this.aiMaxTokens = 150,
     required this.webSocketUrl,
     required this.apiVersion,
     required this.flavor,
@@ -148,6 +153,21 @@ class AppConfig {
 
   /// Base URL of the REST API. Must not include a trailing slash.
   final String apiBaseUrl;
+
+  /// Base URL for the AI inference provider, used without the app API suffix.
+  final String aiBaseUrl;
+
+  /// Model identifier sent in OpenAI-compatible chat-completions requests.
+  final String aiModel;
+
+  /// Optional future AI provider key. Empty means no Authorization is sent.
+  final String aiApiKey;
+
+  /// System instruction sent as the first chat-completions message.
+  final String aiSystemPrompt;
+
+  /// Maximum number of generated tokens for Qwen requests.
+  final int aiMaxTokens;
 
   /// Base URL of the WebSocket gateway. Must not include a trailing slash.
   final String webSocketUrl;
@@ -200,6 +220,17 @@ class AppConfig {
         ? normalizedBase
         : '$normalizedBase/api';
     return '$apiRoot/$apiVersion';
+  }
+
+  /// AI API root, preserving provider paths such as `/v1`.
+  String get resolvedAiApiUrl {
+    final configuredBase = aiBaseUrl.trim();
+    final parsed = Uri.tryParse(configuredBase);
+    final hasValidHttpBase = parsed != null &&
+        (parsed.scheme == 'http' || parsed.scheme == 'https') &&
+        parsed.host.isNotEmpty;
+    if (!hasValidHttpBase) return 'http://ai-backend-not-configured.invalid';
+    return configuredBase.replaceFirst(RegExp(r'/+$'), '');
   }
 
   /// Singleton accessor. Must be initialised via [AppConfig.initialize]

@@ -162,6 +162,7 @@ abstract interface class ApiConsumer {
     Object? data,
     Map<String, String>? headers,
     String? cancelToken,
+    String? baseUrl,
   });
 
   // ── Cancellation ───────────────────────────────────────────────────────

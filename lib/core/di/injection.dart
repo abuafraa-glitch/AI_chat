@@ -151,7 +151,10 @@ Future<void> initDependencies() async {
   // application-wide concern, not a per-screen concern.
   sl.registerLazySingleton<ModelsCubit>(
     // Backend integration is opt-in; boot must not start a network request.
-    () => ModelsCubit(repository: sl<AIRepository>()),
+    () => ModelsCubit(
+      repository: sl<AIRepository>(),
+      defaultModelId: AppConfig.instance.aiModel,
+    ),
   );
 
   sl.registerLazySingleton<ConversationRepository>(

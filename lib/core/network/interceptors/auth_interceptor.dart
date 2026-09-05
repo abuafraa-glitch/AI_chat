@@ -63,6 +63,10 @@ final class AuthInterceptor extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
+    if (_isAiRequest(options)) {
+      handler.next(options);
+      return;
+    }
     try {
       final token = await _tokenProvider.readAccessToken();
       if (token != null && token.isNotEmpty) {
@@ -90,7 +94,8 @@ final class AuthInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) async {
     if (err.response?.statusCode == HttpStatusCode.unauthorized &&
-        !_isRefreshRequest(err.requestOptions)) {
+        !_isRefreshRequest(err.requestOptions) &&
+        !_isAiRequest(err.requestOptions)) {
       await _handleUnauthorized(err, handler);
       return;
     }
@@ -103,6 +108,9 @@ final class AuthInterceptor extends Interceptor {
   /// preventing infinite refresh loops.
   bool _isRefreshRequest(RequestOptions options) =>
       options.path.contains(Endpoints.refresh);
+
+  bool _isAiRequest(RequestOptions options) =>
+      options.uri.host == Uri.parse(_config.resolvedAiApiUrl).host;
 
   /// Orchestrates the token-refresh flow.
   ///

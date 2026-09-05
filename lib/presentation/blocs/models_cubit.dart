@@ -55,11 +55,14 @@ final class ModelsState extends Equatable {
 /// selection state. No local or hardcoded model is supplied.
 final class ModelsCubit extends Cubit<ModelsState> {
   /// Creates a [ModelsCubit] wired to [repository].
-  ModelsCubit({required AIRepository repository})
+  ModelsCubit({required AIRepository repository, this.defaultModelId})
     : _repository = repository,
-      super(const ModelsState());
+      super(ModelsState(selectedModelId: defaultModelId));
 
   final AIRepository _repository;
+
+  /// Model used when the provider does not expose an application catalogue.
+  final String? defaultModelId;
 
   /// Loads the AI model catalogue.
   Future<void> loadModels() async {
@@ -71,9 +74,12 @@ final class ModelsCubit extends Cubit<ModelsState> {
       final currentIsAvailable = models.any(
         (model) => model.id == state.selectedModelId && model.isAvailable,
       );
+      final configuredIsAvailable = models.any(
+        (model) => model.id == defaultModelId && model.isAvailable,
+      );
       String? selectedModelId = currentIsAvailable
           ? state.selectedModelId
-          : null;
+          : (configuredIsAvailable || models.isEmpty ? defaultModelId : null);
       emit(
         state.copyWith(
           models: models,

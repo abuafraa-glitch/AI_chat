@@ -225,14 +225,16 @@ final class ApiClient implements ApiConsumer {
     Object? data,
     Map<String, String>? headers,
     String? cancelToken,
+    String? baseUrl,
   }) async* {
     final token = cancelToken != null
         ? (_cancelTokens[cancelToken] ??= CancelToken())
         : CancelToken();
+    final requestPath = baseUrl == null ? path : '$baseUrl$path';
 
     try {
       final response = await _dio.post<ResponseBody>(
-        path,
+        requestPath,
         data: data,
         // Streaming must not be killed by the default receive timeout:
         // token generation can take longer than a regular REST response.

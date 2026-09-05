@@ -94,6 +94,9 @@ abstract final class Endpoints {
   static String streamMessage(String id) =>
       '/conversations/$id/messages/stream';
 
+  /// `POST /chat/completions` — OpenAI-compatible vLLM inference endpoint.
+  static const String aiChatCompletions = '/chat/completions';
+
   // ── AI Models ─────────────────────────────────────────────────────────────
 
   /// `GET /ai/models` — list all available AI models.

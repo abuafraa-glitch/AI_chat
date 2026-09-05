@@ -154,6 +154,22 @@ final class ChatCubit extends Cubit<ChatState> {
           data: <String, dynamic>{
             'content': content,
             'modelId': modelId,
+            'messages': <Map<String, String>>[
+              ...state.messages
+                  .where((message) =>
+                      (message.role == MessageRole.user ||
+                          message.role == MessageRole.assistant) &&
+                      message.content.isNotEmpty)
+                  .map(
+                    (message) => <String, String>{
+                      'role': message.role == MessageRole.user
+                          ? 'user'
+                          : 'assistant',
+                      'content': message.content,
+                    },
+                  ),
+              <String, String>{'role': 'user', 'content': content},
+            ],
             'attachments': attachments.map((item) => item.toJson()).toList(),
           },
           cancelToken: _cancelToken,
